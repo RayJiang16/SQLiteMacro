@@ -1,0 +1,2 @@
+# SQLiteMacro
+SQLite.swift Macro
