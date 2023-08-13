@@ -92,6 +92,7 @@ extension SQLiteModelMacro: MemberMacro {
         let parameters = getParameters(providingMembersOf: declaration)
         let customizeList = getUserCustomizeList(providingMembersOf: declaration)
         return [
+            createColumns(parameters),
             customizeList.contains(.jsonEncoder) ? nil : createJSONEncoder(),
             customizeList.contains(.jsonDecoder) ? nil : createJSONDecoder(),
             customizeList.contains(.create) ? nil : createOnTable(parameters),
@@ -267,15 +268,10 @@ extension SQLiteModelMacro: MemberMacro {
             """
     }
     
-    private static func createOnTable(_ parameters: [ModelParameter]) -> DeclSyntax {
+    private static func createColumns(_ parameters: [ModelParameter]) -> DeclSyntax {
         let code = parameters.filter {
             $0.wrapperType.available
         }.map {
-            var primaryKey = ""
-            if case .id = $0.wrapperType {
-                primaryKey = ", primaryKey: true"
-            }
-            
             let type: String
             switch $0.wrapperType {
             case .codableToData:
@@ -285,8 +281,25 @@ extension SQLiteModelMacro: MemberMacro {
             default:
                 type = $0.type
             }
-            
-            return "\tt.column(Expression<\(type)>(\($0.wrapperType.key))\(primaryKey))"
+            return "\tstatic let \($0.name) = Expression<\(type)>(\($0.wrapperType.key))"
+        }.joined(separator: "\n")
+        
+        return """
+            struct Columns {
+            \(raw: code)
+            }
+            """
+    }
+    
+    private static func createOnTable(_ parameters: [ModelParameter]) -> DeclSyntax {
+        let code = parameters.filter {
+            $0.wrapperType.available
+        }.map {
+            var primaryKey = ""
+            if case .id = $0.wrapperType {
+                primaryKey = ", primaryKey: true"
+            }
+            return "\t\tt.column(Columns.\($0.name)\(primaryKey))"
         }.joined(separator: "\n")
         
         return
@@ -294,7 +307,7 @@ extension SQLiteModelMacro: MemberMacro {
             
             static func create(on db: Connection, table: Table) throws {
                 try db.run(table.create(ifNotExists: true) { t in
-                    \(raw: code)
+            \(raw: code)
                 })
             }
             
@@ -323,27 +336,25 @@ extension SQLiteModelMacro: MemberMacro {
         let code = parameters.filter {
             $0.wrapperType.available
         }.map {
-            let defaultCode = "Expression<\($0.type)>(\($0.wrapperType.key)) <- item.\($0.name)"
+            let defaultCode = "Columns.\($0.name) <- item.\($0.name)"
             
             switch $0.wrapperType {
-            case .timestamp(let key, let target):
+            case .timestamp(_, let target):
                 if target == ".create" && $0.isOptional {
-                    return "Expression<\($0.type)>(\(key)) <- item.\($0.name) ?? Date()"
+                    return "Columns.\($0.name) <- item.\($0.name) ?? Date()"
                 } else if target == ".update" && $0.isOptional {
-                    return "Expression<\($0.type)>(\(key)) <- Date()"
+                    return "Columns.\($0.name) <- Date()"
                 } else {
                     return defaultCode
                 }
             case .codableToData(_, let defaultValue):
-                let type = $0.isOptional ? "Data?" : "Data"
                 let tryCode = defaultValue != nil && $0.isOptional ? "try?" : "try"
                 let defaultValueCode = defaultValue != nil && $0.isOptional ? " ?? \(defaultValue!)" : ""
-                return "Expression<\(type)>(\($0.wrapperType.key)) <- (\(tryCode) encode(item.\($0.name)\(defaultValueCode)))"
+                return "Columns.\($0.name) <- (\(tryCode) encode(item.\($0.name)\(defaultValueCode)))"
             case .codableToString(_, let encoding, let defaultValue):
-                let type = $0.isOptional ? "String?" : "String"
                 let tryCode = defaultValue != nil && $0.isOptional ? "try?" : "try"
                 let defaultValueCode = defaultValue != nil && $0.isOptional ? " ?? \(defaultValue!)" : ""
-                return "Expression<\(type)>(\($0.wrapperType.key)) <- (\(tryCode) encodeToJSON(item.\($0.name)\(defaultValueCode), encoding: \(encoding)))"
+                return "Columns.\($0.name) <- (\(tryCode) encodeToJSON(item.\($0.name)\(defaultValueCode), encoding: \(encoding)))"
             default:
                 return defaultCode
             }
@@ -389,17 +400,15 @@ extension SQLiteModelMacro: MemberMacro {
         }.map {
             switch $0.wrapperType {
             case .codableToData(_, let defaultValue):
-                let type = $0.isOptional ? "Data?" : "Data"
                 let tryCode = $0.isOptional || (defaultValue != nil) ? "try?" : "try"
                 let defaultValueCode = defaultValue != nil ? " ?? \(defaultValue!)" : ""
-                return "item.\($0.name) = (\(tryCode) decode(\($0.type).self, from: row[Expression<\(type)>(\($0.wrapperType.key))]))\(defaultValueCode)"
+                return "item.\($0.name) = (\(tryCode) decode(\($0.type).self, from: row[Columns.\($0.name)]))\(defaultValueCode)"
             case .codableToString(_, let encoding, let defaultValue):
-                let type = $0.isOptional ? "String?" : "String"
                 let tryCode = $0.isOptional || (defaultValue != nil) ? "try?" : "try"
                 let defaultValueCode = defaultValue != nil ? " ?? \(defaultValue!)" : ""
-                return "item.\($0.name) = (\(tryCode) decode(\($0.type).self, from: row[Expression<\(type)>(\($0.wrapperType.key))], using: \(encoding)))\(defaultValueCode)"
+                return "item.\($0.name) = (\(tryCode) decode(\($0.type).self, from: row[Columns.\($0.name)], using: \(encoding)))\(defaultValueCode)"
             default:
-                return "item.\($0.name) = row[Expression<\($0.type)>(\($0.wrapperType.key))]"
+                return "item.\($0.name) = row[Columns.\($0.name)]"
             }
         }.joined(separator: "\n")
         

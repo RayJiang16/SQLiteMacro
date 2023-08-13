@@ -2,14 +2,13 @@ import Foundation
 
 //@attached(extension)
 @attached(memberAttribute)
-@attached(member, names: named(jsonEncoder), named(jsonDecoder), named(encode), named(decode), named(create), named(customEncoding), named(customDecoding), named(init))
+@attached(member, names: named(jsonEncoder), named(jsonDecoder), named(encode), named(decode), named(create), named(customEncoding), named(customDecoding), named(Columns), named(init))
 public macro SQLiteModel() = #externalMacro(module: "SQLiteMacroMacros", type: "SQLiteModelMacro")
 
 
 @attached(peer)
 public macro ID(key: String = "id") = #externalMacro(module: "SQLiteMacroMacros", type: "SQLiteModelPlaceholdMacro")
 
-/// 如果你的变量名和 API 对不上，可以使用 @Param 对其进行修改。例如：@Param("userId")
 @attached(peer)
 public macro Field(key: String) = #externalMacro(module: "SQLiteMacroMacros", type: "SQLiteModelPlaceholdMacro")
 
