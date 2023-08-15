@@ -92,7 +92,8 @@ extension SQLiteModelMacro: MemberMacro {
         let parameters = getParameters(providingMembersOf: declaration)
         let customizeList = getUserCustomizeList(providingMembersOf: declaration)
         return [
-            createColumns(parameters),
+            createColumns(),
+            createColumnsStruct(parameters),
             customizeList.contains(.jsonEncoder) ? nil : createJSONEncoder(),
             customizeList.contains(.jsonDecoder) ? nil : createJSONDecoder(),
             customizeList.contains(.create) ? nil : createOnTable(parameters),
@@ -268,7 +269,13 @@ extension SQLiteModelMacro: MemberMacro {
             """
     }
     
-    private static func createColumns(_ parameters: [ModelParameter]) -> DeclSyntax {
+    private static func createColumns() -> DeclSyntax {
+        return """
+            static let columns = Columns()
+            """
+    }
+    
+    private static func createColumnsStruct(_ parameters: [ModelParameter]) -> DeclSyntax {
         let code = parameters.filter {
             $0.wrapperType.available
         }.map {
@@ -281,7 +288,7 @@ extension SQLiteModelMacro: MemberMacro {
             default:
                 type = $0.type
             }
-            return "\tstatic let \($0.name) = Expression<\(type)>(\($0.wrapperType.key))"
+            return "\tlet \($0.name) = Expression<\(type)>(\($0.wrapperType.key))"
         }.joined(separator: "\n")
         
         return """
@@ -299,7 +306,7 @@ extension SQLiteModelMacro: MemberMacro {
             if case .id = $0.wrapperType {
                 primaryKey = ", primaryKey: true"
             }
-            return "\t\tt.column(Columns.\($0.name)\(primaryKey))"
+            return "\t\tt.column(columns.\($0.name)\(primaryKey))"
         }.joined(separator: "\n")
         
         return
@@ -336,25 +343,25 @@ extension SQLiteModelMacro: MemberMacro {
         let code = parameters.filter {
             $0.wrapperType.available
         }.map {
-            let defaultCode = "Columns.\($0.name) <- item.\($0.name)"
+            let defaultCode = "columns.\($0.name) <- item.\($0.name)"
             
             switch $0.wrapperType {
             case .timestamp(_, let target):
                 if target == ".create" && $0.isOptional {
-                    return "Columns.\($0.name) <- item.\($0.name) ?? Date()"
+                    return "columns.\($0.name) <- item.\($0.name) ?? Date()"
                 } else if target == ".update" && $0.isOptional {
-                    return "Columns.\($0.name) <- Date()"
+                    return "columns.\($0.name) <- Date()"
                 } else {
                     return defaultCode
                 }
             case .codableToData(_, let defaultValue):
                 let tryCode = defaultValue != nil && $0.isOptional ? "try?" : "try"
                 let defaultValueCode = defaultValue != nil && $0.isOptional ? " ?? \(defaultValue!)" : ""
-                return "Columns.\($0.name) <- (\(tryCode) encode(item.\($0.name)\(defaultValueCode)))"
+                return "columns.\($0.name) <- (\(tryCode) encode(item.\($0.name)\(defaultValueCode)))"
             case .codableToString(_, let encoding, let defaultValue):
                 let tryCode = defaultValue != nil && $0.isOptional ? "try?" : "try"
                 let defaultValueCode = defaultValue != nil && $0.isOptional ? " ?? \(defaultValue!)" : ""
-                return "Columns.\($0.name) <- (\(tryCode) encodeToJSON(item.\($0.name)\(defaultValueCode), encoding: \(encoding)))"
+                return "columns.\($0.name) <- (\(tryCode) encodeToJSON(item.\($0.name)\(defaultValueCode), encoding: \(encoding)))"
             default:
                 return defaultCode
             }
@@ -402,13 +409,13 @@ extension SQLiteModelMacro: MemberMacro {
             case .codableToData(_, let defaultValue):
                 let tryCode = $0.isOptional || (defaultValue != nil) ? "try?" : "try"
                 let defaultValueCode = defaultValue != nil ? " ?? \(defaultValue!)" : ""
-                return "item.\($0.name) = (\(tryCode) decode(\($0.type).self, from: row[Columns.\($0.name)]))\(defaultValueCode)"
+                return "item.\($0.name) = (\(tryCode) decode(\($0.type).self, from: row[columns.\($0.name)]))\(defaultValueCode)"
             case .codableToString(_, let encoding, let defaultValue):
                 let tryCode = $0.isOptional || (defaultValue != nil) ? "try?" : "try"
                 let defaultValueCode = defaultValue != nil ? " ?? \(defaultValue!)" : ""
-                return "item.\($0.name) = (\(tryCode) decode(\($0.type).self, from: row[Columns.\($0.name)], using: \(encoding)))\(defaultValueCode)"
+                return "item.\($0.name) = (\(tryCode) decode(\($0.type).self, from: row[columns.\($0.name)], using: \(encoding)))\(defaultValueCode)"
             default:
-                return "item.\($0.name) = row[Columns.\($0.name)]"
+                return "item.\($0.name) = row[columns.\($0.name)]"
             }
         }.joined(separator: "\n")
         

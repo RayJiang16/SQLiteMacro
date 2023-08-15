@@ -2,7 +2,7 @@ import Foundation
 
 //@attached(extension)
 @attached(memberAttribute)
-@attached(member, names: named(jsonEncoder), named(jsonDecoder), named(encode), named(decode), named(create), named(customEncoding), named(customDecoding), named(Columns), named(init))
+@attached(member, names: named(jsonEncoder), named(jsonDecoder), named(encode), named(decode), named(create), named(customEncoding), named(customDecoding), named(Columns), named(columns), named(init))
 public macro SQLiteModel() = #externalMacro(module: "SQLiteMacroMacros", type: "SQLiteModelMacro")
 
 
