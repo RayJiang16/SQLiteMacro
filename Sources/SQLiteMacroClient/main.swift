@@ -17,6 +17,7 @@ struct Foo: SQLiteModelProtocol {
 //    var coo: Coo?
 //    @CodableToData(key: "coo_list", defaultValue: "[]")
 //    var cooList: [Coo] = []
+    var test: String?
     
     var coo1: Coo?
     

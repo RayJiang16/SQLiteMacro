@@ -60,7 +60,7 @@ extension SQLiteModelMacro: MemberAttributeMacro {
             let attribute = decl.attributes?.first?.as(AttributeSyntax.self)?.attributeName.trimmedDescription ?? ""
             let propertyName = decl.bindings.first?.pattern.trimmedDescription ?? ""
             let type = decl.bindings.first?.typeAnnotation?.type.trimmedDescription ?? ""
-            let supportTypes = SQLSupportType.allCases.map(\.rawValue)
+            let supportTypes = SQLSupportType.allType
             
             if propertyKeys.contains(propertyName) {
                 return []
@@ -124,7 +124,7 @@ extension SQLiteModelMacro: MemberMacro {
     /// - Parameter declaration: The declaration group syntax.
     /// - Returns: An array of `ModelParameter` objects.
     private static func getParameters(providingMembersOf declaration: DeclGroupSyntax) -> [ModelParameter] {
-        let supportTypes = SQLSupportType.allCases.map(\.rawValue)
+        let supportTypes = SQLSupportType.allType
         
         return declaration.memberBlock.members.compactMap {
             $0.decl.as(VariableDeclSyntax.self) // Retrieve property declarations only
