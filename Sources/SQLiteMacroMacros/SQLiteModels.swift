@@ -100,6 +100,7 @@ enum SQLSupportType: String, CaseIterable {
     case UUID
     case Date
     case Data
+    case Bool
     
     static var allType: [String] {
         return allCases.map(\.rawValue) + allCases.map { "\($0.rawValue)?" }

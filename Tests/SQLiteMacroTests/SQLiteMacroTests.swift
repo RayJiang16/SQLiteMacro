@@ -19,7 +19,7 @@ final class SQLiteMacroTests: XCTestCase {
             @SQLiteModel
             class FooV2 {
                 static let jsonEncoder = JSONEncoder()
-                var test: String?
+                var test: Bool?
             }
             """,
             expandedSource: """
